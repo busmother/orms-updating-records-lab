@@ -1,4 +1,5 @@
 require_relative "../config/environment.rb"
+require 'pry'
 
 class Student
 
@@ -28,55 +29,57 @@ class Student
     DB[:conn].execute(sql)
   end
 
+  # def save
+  #   if self.find_by_name == false
+  #     insertion = <<-SQL
+  #       INSERT INTO students (name, grade) 
+  #       VALUES (?, ?)
+  #     SQL
+  #     DB[:conn].execute(insertion, self.name, self.grade)
+  #     @id = DB[:conn].execute("SELECT last_insert_rowid() FROM students")[0][0]
+  #   else
+  #     update
+  #   end
+  # end
+
   def save
-    if self.find_by_name == false
-      insertion = <<-SQL
-        INSERT INTO students (name, grade) 
-        VALUES (?, ?)
-      SQL
-      DB[:conn].execute(insertion, self.name, self.grade)
-      @id = DB[:conn].execute("SELECT last_insert_rowid() FROM students")[0][0]
-    else
+    if self.id
       update
+    else
+      sql = <<-SQL
+      INSERT INTO students (name, grade)
+      VALUES (?,?)
+      SQL
+      DB[:conn].execute(sql, self.name, self.grade)
+      @id = DB[:conn].execute("SELECT last_insert_rowid() FROM students")[0][0]
     end
   end
 
-  # def save
-  #   sql = <<-SQL
-  #   INSERT INTO students (name, grade) 
-  #   VALUES (?, ?)
-  #   SQL
-
-  #   DB[:conn].execute(sql, self.name, self.grade)
-  #   @id = DB[:conn].execute("SELECT last_insert_rowid() FROM students")[0][0]
-  # end
-
   def self.create(name,grade)
-    self.new
-    save
+    student = self.new(name,grade)
+    student.save
   end
 
   def self.new_from_db(row)
-    new_student = self.new
-    new_student.id = row[0]
-    new_student.name = row[1]
-    new_student.grade = row[2]
-    new_student
+    student = self.new(row[0], row[1], row[2])
+    student
   end
 
-  def self.find_by_name
+  def self.find_by_name(name)
     sql = "SELECT * FROM students WHERE name = ?"
-    result = DB[:conn].execute(sql, @name)[0]
-    result.length > 0 ? result : false
+    result = DB[:conn].execute(sql, name)[0]
+    if result == nil
+      false
+    else
+      DB[:conn].execute(sql,name).map do |row|
+        self.new_from_db(row)
+      end.first
+    end
   end
 
   def update
-    sql = "SELECT id FROM students WHERE name = ?"
-    @id = DB[:conn].execute(sql, @name)[0][0]
-    update = <<-SQL
-    UPDATE students name = ?, grade = ? WHERE name = ?
-    SQL
-    DB[:conn].execut(update, @name, @grade, @name)
+    sql = "UPDATE students SET name = ?, grade = ? WHERE id = ?"
+    DB[:conn].execute(sql, @name, @grade, @id)
   end
 
 end
